@@ -69,7 +69,4 @@ uv run run-debug.py     # debug build + run variant (does not create charts)
 - **`SwitchToThread` / `Sleep(0)` / `yield` polling** — variants of the sleep-poll family, no fixed sleep.
 - **`sleep_poll_1ms` + `timeBeginPeriod(1)`** — Windows-only; should shave off the default timer granularity.
 - **Thread affinity variants** — pin producer+consumer to the same physical core, same SMT pair, different cores on same socket, different sockets. Latency floor changes by ~order of magnitude across these.
-- **Real-time priority consumer** — `SetThreadPriority(THREAD_PRIORITY_TIME_CRITICAL)` / `sched_setscheduler(SCHED_FIFO)`; should tighten the tail by reducing preemption jitter.
 - **Cache-line alignment / padding study** — currently the forward-edge atomics share cache-line space with the back-edge `consumer_ready` flag; separate them and quantify the impact.
-- **Colocation under NUMA** — producer and consumer on cores of the same NUMA node vs different nodes.
-- **io_uring (Linux)** — for comparison against the kernel queue-based patterns.

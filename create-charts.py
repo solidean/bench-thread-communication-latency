@@ -12,6 +12,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
+# Latency axis range, in log10(seconds). Defaults: 1 ns .. 10 ms.
+LOG10_MIN_S = -7.5
+LOG10_MAX_S = -2.5
+BINS_PER_DECADE = 12
+
 # Dark mode
 BG = "#121622"
 FG = "#e0e0e0"
@@ -47,8 +52,12 @@ df = df[df["latency_s"] > 0].copy()
 method_order = list(df["method"].drop_duplicates())
 method_color = {m: df[df["method"] == m]["color"].iloc[0] for m in method_order}
 
-# 12 decades, 12 bins per decade → 121 edges
-bins = np.logspace(-9, 1, 121)
+# seaborn's log_scale=True expects bin edges in log space, not data space
+bins = np.linspace(
+    LOG10_MIN_S,
+    LOG10_MAX_S,
+    int(round((LOG10_MAX_S - LOG10_MIN_S) * BINS_PER_DECADE)) + 1,
+)
 
 sns.set_theme(
     style="white",
@@ -68,32 +77,38 @@ g = sns.FacetGrid(
     df,
     row="method",
     row_order=method_order,
-    hue="method",
-    palette=method_color,
     aspect=9,
     height=1.2,
     sharex=True,
     sharey=False,
 )
-g.map_dataframe(
-    sns.histplot,
-    x="latency_s",
-    bins=bins,
-    log_scale=(True, False),
-    stat="density",
-    element="step",
-    fill=True,
-    alpha=0.75,
-    linewidth=1.3,
-)
 
 
-def add_row_label(color, label, **_):
+def plot_hist(data, **_):
+    m = data["method"].iloc[0]
+    sns.histplot(
+        data=data,
+        x="latency_s",
+        bins=bins,
+        log_scale=(True, False),
+        stat="density",
+        element="step",
+        fill=True,
+        alpha=0.75,
+        linewidth=1.3,
+        color=method_color[m],
+    )
+
+
+g.map_dataframe(plot_hist)
+
+
+def add_row_label(values, **_):
     ax = plt.gca()
     ax.text(
         0.005,
         0.3,
-        label,
+        values.iloc[0],
         fontweight="bold",
         color=ROW_LABEL,
         ha="left",
@@ -122,7 +137,7 @@ g.figure.subplots_adjust(hspace=-0.15)
 
 # x-axis: decades 1ns..10s
 bottom_ax = g.axes[-1][0]
-bottom_ax.set_xlim(1e-9, 10)
+bottom_ax.set_xlim(10.0**LOG10_MIN_S, 10.0**LOG10_MAX_S)
 bottom_ax.set_xlabel("Latency")
 bottom_ax.xaxis.set_major_locator(ticker.LogLocator(base=10, numticks=12))
 bottom_ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: fmt_seconds(v)))
