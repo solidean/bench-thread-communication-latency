@@ -11,6 +11,8 @@
 #include "methods/pthread_cond.hh"
 #include "methods/sleep_poll_1ms.hh"
 #include "methods/spin_atomic.hh"
+#include "methods/spin_atomic_pause.hh"
+#include "methods/spin_atomic_timestamp.hh"
 #include "methods/spsc_ring.hh"
 #include "methods/std_barrier.hh"
 #include "methods/yield_poll.hh"
@@ -33,7 +35,7 @@
 #include <print>
 #include <vector>
 
-constexpr std::size_t NUM_SAMPLES = 10'000;
+constexpr std::size_t NUM_SAMPLES = 20'000;
 constexpr std::size_t WARMUP_SAMPLES = 200;
 
 int main()
@@ -42,6 +44,8 @@ int main()
 
     std::vector<std::unique_ptr<ILatencyMethod>> methods;
     methods.emplace_back(std::make_unique<spin_atomic>("spin_atomic"));
+    methods.emplace_back(std::make_unique<spin_atomic_pause>("spin_atomic_pause"));
+    methods.emplace_back(std::make_unique<spin_atomic_timestamp>("spin_atomic_timestamp"));
     methods.emplace_back(std::make_unique<spsc_ring>("spsc_ring"));
     methods.emplace_back(std::make_unique<moodycamel_spsc>("moodycamel_spsc"));
     methods.emplace_back(std::make_unique<boost_lockfree_spsc>("boost_lockfree_spsc"));
@@ -64,8 +68,15 @@ int main()
     // quite slow in comparison
     // methods.emplace_back(std::make_unique<sleep_poll_1ms>("sleep_poll_1ms"));
 
-    std::ofstream csv("result.csv");
-    csv << "method,latency_ns,color\n";
+    struct method_result
+    {
+        std::string name;
+        std::string color;
+        std::vector<std::uint64_t> samples;
+        std::uint64_t median;
+    };
+    std::vector<method_result> results;
+    results.reserve(methods.size());
 
     for (auto const& m : methods)
     {
@@ -75,10 +86,10 @@ int main()
         (void)m->run(WARMUP_SAMPLES);
 
         timer t;
-        auto const samples = m->run(NUM_SAMPLES);
+        auto samples = m->run(NUM_SAMPLES);
         auto const secs = t.elapsed_secs();
 
-        // sort a copy for percentile stats (keep CSV order unchanged)
+        // sort a copy for percentile stats (keep sample order unchanged)
         auto sorted = samples;
         std::ranges::sort(sorted);
         auto const pct = [&](double p)
@@ -91,11 +102,17 @@ int main()
         std::println("  p99      {:>10} ns", pct(0.99));
         std::println("  max      {:>10} ns", sorted.back());
 
-        for (auto ns : samples)
-            csv << m->name() << "," << ns << "," << m->color() << "\n";
+        results.push_back({std::string(m->name()), std::string(m->color()), std::move(samples), pct(0.50)});
         std::fflush(stdout);
     }
 
+    std::ranges::sort(results, {}, &method_result::median);
+
+    std::ofstream csv("result.csv");
+    csv << "method,latency_ns,color\n";
+    for (auto const& r : results)
+        for (auto ns : r.samples)
+            csv << r.name << "," << ns << "," << r.color << "\n";
     csv.close();
 
     auto const csv_path = std::filesystem::absolute("result.csv");
