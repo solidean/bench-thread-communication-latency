@@ -14,7 +14,7 @@ import matplotlib.ticker as ticker
 
 # Latency axis range, in log10(seconds). Defaults: 1 ns .. 10 ms.
 LOG10_MIN_S = -7.5
-LOG10_MAX_S = -2.5
+LOG10_MAX_S = -5
 BINS_PER_DECADE = 12
 
 # Dark mode

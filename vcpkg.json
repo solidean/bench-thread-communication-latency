@@ -1,5 +1,9 @@
 {
   "name": "bench-thread-communication-latency",
   "version-string": "0.1.0",
-  "dependencies": []
+  "dependencies": [
+    "readerwriterqueue",
+    "concurrentqueue",
+    "boost-lockfree"
+  ]
 }
