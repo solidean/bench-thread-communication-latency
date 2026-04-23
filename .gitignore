@@ -39,3 +39,20 @@
 
 # debug information files
 *.dwo
+
+# build
+build
+__pycache__
+
+# clangd
+.cache
+
+# results in root
+/result.csv
+/chart*.svg
+
+# vcpkg per-project install tree
+/vcpkg_installed/
+
+# agents
+.claude
